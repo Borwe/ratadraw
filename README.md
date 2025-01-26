@@ -1,4 +1,4 @@
-# RataDraw
+# RataDraw (Still under construction)
 
 ## What is this?
 A set library and a TUI application for creating art on terminal
