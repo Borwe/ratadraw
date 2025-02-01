@@ -15,7 +15,6 @@ this
 [] Allow to set background as transparent, meaning only where mouse touches are the image
 [] Allow cropping
 [] Have a hoveriing cursor to show where mouse would click if clicked
-[] Allow for setting color
 [] Allow for exporting as .txt
 [] Allow export as .rata format to be used by `rata-loader`
 
