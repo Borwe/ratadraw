@@ -1,9 +1,28 @@
-use ratatui::{ crossterm::event::{MouseButton, MouseEvent, MouseEventKind}, layout::{Position, Rect}, widgets::{Block, Widget}};
+use std::{collections::HashSet, hash::Hash};
+
+use ratatui::{ crossterm::event::{MouseButton, MouseEvent, MouseEventKind}, layout::{Position, Rect}, symbols, widgets::{Block, Widget}};
 
 pub struct MyCell {
     x: u16,
     y: u16,
     val: &'static str
+}
+
+impl PartialEq for MyCell {
+    fn eq(&self, other: &Self) -> bool {
+        other.x == self.x && other.y == self.y && self.val == other.val
+    }
+}
+
+impl Hash for MyCell {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.val.hash(state);
+        self.x.hash(state);
+        self.y.hash(state);
+    }
+}
+
+impl Eq for MyCell {
 }
 
 impl Into<Position> for &MyCell{
@@ -15,7 +34,7 @@ impl Into<Position> for &MyCell{
 pub struct DrawingCanvas {
     full_region: Option<Rect>,
     actual_region: Option<Rect>,
-    cells: Vec<MyCell>
+    cells: HashSet<MyCell>
 }
 
 impl DrawingCanvas {
@@ -23,17 +42,17 @@ impl DrawingCanvas {
         DrawingCanvas { 
             full_region: None,
             actual_region: None,
-            cells: Vec::default()
+            cells: HashSet::default()
         }
     }
 
     pub(crate) fn listen(&mut self, event: MouseEvent) {
         match event.kind {
             MouseEventKind::Down(x) if x == MouseButton::Left => {
-                self.cells.push(MyCell { x: event.column, y: event.row, val: "A" });
+                self.cells.insert(MyCell { x: event.column, y: event.row, val: symbols::block::FULL });
             },
             MouseEventKind::Drag(x) if x == MouseButton::Left => {
-                self.cells.push(MyCell { x: event.column, y: event.row, val: "D" });
+                self.cells.insert(MyCell { x: event.column, y: event.row, val: symbols::block::FULL });
             }
             _ =>{}
         };
@@ -72,8 +91,9 @@ impl Widget for &mut DrawingCanvas {
         block.render(area, buf);
 
         for c in self.cells.iter() {
-            let cell = buf.cell_mut(c).unwrap();
-            cell.set_symbol(c.val);
+            if let Some(cell) = buf.cell_mut(c){
+                cell.set_symbol(c.val);
+            }
         }
     }
 }

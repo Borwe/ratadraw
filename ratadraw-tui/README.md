@@ -8,7 +8,7 @@ to be imported into ratatui, or just exported to a
 this 
 
 ## Features
-[] Easy UI for drawing on using mouse
+[x] Easy UI for drawing on using mouse
 [] Allow change background color of all image
 [] Allow change of forground and background of pen/mouse(region clicked)
 [] Allow producing images that are scalable once imported using `rata-loader`
