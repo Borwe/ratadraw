@@ -1,10 +1,21 @@
-use ratatui::{buffer::Cell, crossterm::event::MouseEvent, layout::Rect, widgets::{canvas::Canvas, Block, Widget}};
+use ratatui::{ crossterm::event::{MouseButton, MouseEvent, MouseEventKind}, layout::{Position, Rect}, widgets::{Block, Widget}};
 
+pub struct MyCell {
+    x: u16,
+    y: u16,
+    val: &'static str
+}
+
+impl Into<Position> for &MyCell{
+    fn into(self) -> Position {
+        (self.x,self.y).into()
+    }
+}
 
 pub struct DrawingCanvas {
     full_region: Option<Rect>,
     actual_region: Option<Rect>,
-    cells: Vec<Cell>
+    cells: Vec<MyCell>
 }
 
 impl DrawingCanvas {
@@ -16,8 +27,16 @@ impl DrawingCanvas {
         }
     }
 
-    pub(crate) fn listen(&mut self, x: MouseEvent) {
-        todo!()
+    pub(crate) fn listen(&mut self, event: MouseEvent) {
+        match event.kind {
+            MouseEventKind::Down(x) if x == MouseButton::Left => {
+                self.cells.push(MyCell { x: event.column, y: event.row, val: "A" });
+            },
+            MouseEventKind::Drag(x) if x == MouseButton::Left => {
+                self.cells.push(MyCell { x: event.column, y: event.row, val: "D" });
+            }
+            _ =>{}
+        };
     }
 
     fn generate_rect(&mut self, big_rect: Rect)-> Rect{
@@ -51,5 +70,10 @@ impl Widget for &mut DrawingCanvas {
         let block = Block::bordered().title("Canvas");
         //let inner_area = block.inner(area);
         block.render(area, buf);
+
+        for c in self.cells.iter() {
+            let cell = buf.cell_mut(c).unwrap();
+            cell.set_symbol(c.val);
+        }
     }
 }
