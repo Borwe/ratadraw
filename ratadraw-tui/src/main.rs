@@ -1,20 +1,24 @@
 use std::{error::Error, io::stdout, time::Duration};
 
-use ratatui::{crossterm::{event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyEventKind}, ExecutableCommand}, prelude::Backend, text::Line, widgets::{Block, Paragraph}, Terminal};
+use canvas_widget::DrawingCanvas;
+use ratatui::{crossterm::{event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyEventKind}, ExecutableCommand}, layout::Rect, prelude::Backend, text::Line, widgets::{Block, Paragraph}, Terminal};
 use topbar_widget::TopBarWidget;
 
 mod topbar_widget;
+mod canvas_widget;
 
 struct App {
     exit: bool,
-    topbar: TopBarWidget
+    topbar: TopBarWidget,
+    canvas: DrawingCanvas
 }
 
 impl App {
-    fn new()-> Self{
+    fn new(region: Rect)-> Self{
         Self{
             exit: false,
-            topbar: TopBarWidget::default()
+            topbar: TopBarWidget::default(),
+            canvas: DrawingCanvas::new()
         }
     }
 
@@ -22,6 +26,7 @@ impl App {
         while !self.exit {
             term.draw(|f|{
                 f.render_widget(&self.topbar, f.area());
+                f.render_widget(&mut self.canvas, f.area());
             })?;
             self.listen()?
         }
@@ -48,6 +53,7 @@ impl App {
                     _ => {}
                 }
             }
+            Event::Mouse(x) => self.canvas.listen(x),
             _ => {}
         }
     }
@@ -55,7 +61,7 @@ impl App {
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mut term = ratatui::init();
-    let mut app = App::new();
+    let mut app = App::new(term.get_frame().area());
     stdout().execute(EnableMouseCapture)?;
     app.run(&mut term)?;
     stdout().execute(DisableMouseCapture)?;
