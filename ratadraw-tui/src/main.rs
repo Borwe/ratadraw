@@ -1,6 +1,6 @@
-use std::{error::Error, time::Duration};
+use std::{error::Error, io::stdout, time::Duration};
 
-use ratatui::{crossterm::event::{self, Event, KeyEventKind}, prelude::Backend, text::Line, widgets::{Block, Paragraph}, Terminal};
+use ratatui::{crossterm::{event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyEventKind}, ExecutableCommand}, prelude::Backend, text::Line, widgets::{Block, Paragraph}, Terminal};
 use topbar_widget::TopBarWidget;
 
 mod topbar_widget;
@@ -56,7 +56,8 @@ impl App {
 fn main() -> Result<(), Box<dyn Error>> {
     let mut term = ratatui::init();
     let mut app = App::new();
+    stdout().execute(EnableMouseCapture)?;
     app.run(&mut term)?;
-    ratatui::restore();
+    stdout().execute(DisableMouseCapture)?;
     Ok(ratatui::try_restore()?)
 }
