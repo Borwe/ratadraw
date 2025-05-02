@@ -311,6 +311,7 @@ name = "ratadraw-tui"
 version = "0.1.0"
 dependencies = [
  "ratatui",
+ "tui-menu",
 ]
 
 [[package]]
@@ -453,6 +454,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
+]
+
+[[package]]
+name = "tui-menu"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5165784d84bca6340bcb189960dcd63136faf19404ebdf420da05ab7fce55277"
+dependencies = [
+ "ratatui",
 ]
 
 [[package]]
