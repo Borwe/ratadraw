@@ -55,6 +55,7 @@ impl App {
             Event::Key(x) => match x.kind {
                 KeyEventKind::Press => match x.code {
                     event::KeyCode::Char('q') => self.exit = true,
+                    event::KeyCode::Char('u') => self.canvas.undo(),
                     _ => {}
                 },
                 _ => {}

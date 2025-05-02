@@ -41,6 +41,7 @@ pub struct DrawingCanvas {
     full_region: Option<Rect>,
     actual_region: Option<Rect>,
     cells: Vec<CellGroup>,
+    undone_cells: Vec<CellGroup>,
 }
 
 impl DrawingCanvas {
@@ -49,6 +50,7 @@ impl DrawingCanvas {
             full_region: None,
             actual_region: None,
             cells: Vec::default(),
+            undone_cells: Vec::default(),
         }
     }
 
@@ -97,6 +99,12 @@ impl DrawingCanvas {
             width: big_rect.width,
             height: big_rect.height - 1,
         })
+    }
+
+    pub(crate) fn undo(&mut self) {
+        if let Some(undone) = self.cells.pop() {
+            self.undone_cells.push(undone);
+        }
     }
 }
 
