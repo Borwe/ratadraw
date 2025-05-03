@@ -1,4 +1,4 @@
-use std::{error::Error, io::stdout, time::Duration};
+use std::{default, error::Error, io::stdout, time::Duration};
 
 use canvas_widget::DrawingCanvas;
 use ratatui::{
@@ -17,21 +17,15 @@ use topbar_widget::TopBarWidget;
 mod canvas_widget;
 mod topbar_widget;
 
+#[derive(Default)]
 struct App {
     exit: bool,
+    mouse_position: Option<Rect>,
     topbar: TopBarWidget,
     canvas: DrawingCanvas,
 }
 
 impl App {
-    fn new() -> Self {
-        Self {
-            exit: false,
-            topbar: TopBarWidget::default(),
-            canvas: DrawingCanvas::new(),
-        }
-    }
-
     fn run<B: Backend>(&mut self, term: &mut Terminal<B>) -> Result<(), Box<dyn Error>> {
         while !self.exit {
             term.draw(|f| {
@@ -79,7 +73,7 @@ impl App {
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mut term = ratatui::init();
-    let mut app = App::new();
+    let mut app = App::default();
     stdout().execute(EnableMouseCapture)?;
     app.run(&mut term)?;
     stdout().execute(DisableMouseCapture)?;

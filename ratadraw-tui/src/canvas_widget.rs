@@ -37,6 +37,7 @@ impl Into<Position> for &MyCell {
 
 type CellGroup = Vec<MyCell>;
 
+#[derive(Default)]
 pub struct DrawingCanvas {
     full_region: Option<Rect>,
     actual_region: Option<Rect>,
@@ -45,15 +46,6 @@ pub struct DrawingCanvas {
 }
 
 impl DrawingCanvas {
-    pub(crate) fn new() -> DrawingCanvas {
-        DrawingCanvas {
-            full_region: None,
-            actual_region: None,
-            cells: Vec::default(),
-            undone_cells: Vec::default(),
-        }
-    }
-
     pub(crate) fn listen(&mut self, event: MouseEvent) {
         match event.kind {
             MouseEventKind::Down(x) if x == MouseButton::Left => {
