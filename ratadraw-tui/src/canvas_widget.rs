@@ -57,6 +57,8 @@ impl DrawingCanvas {
     pub(crate) fn listen(&mut self, event: MouseEvent) {
         match event.kind {
             MouseEventKind::Down(x) if x == MouseButton::Left => {
+                //clear all items in undone queue as we've overwritten them
+                self.undone_cells.clear();
                 let mut new_group = CellGroup::with_capacity(200);
                 new_group.push(MyCell {
                     x: event.column,
@@ -104,6 +106,12 @@ impl DrawingCanvas {
     pub(crate) fn undo(&mut self) {
         if let Some(undone) = self.cells.pop() {
             self.undone_cells.push(undone);
+        }
+    }
+
+    pub(crate) fn redo(&mut self) {
+        if let Some(redo) = self.undone_cells.pop() {
+            self.cells.push(redo);
         }
     }
 }

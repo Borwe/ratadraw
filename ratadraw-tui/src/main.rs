@@ -38,6 +38,7 @@ impl App {
                 f.render_widget(&self.topbar, f.area());
                 f.render_widget(&mut self.canvas, f.area());
             })?;
+            self.topbar.clear_selection();
             self.listen()?
         }
         Ok(())
@@ -54,8 +55,18 @@ impl App {
         match event {
             Event::Key(x) => match x.kind {
                 KeyEventKind::Press => match x.code {
-                    event::KeyCode::Char('q') => self.exit = true,
-                    event::KeyCode::Char('u') => self.canvas.undo(),
+                    event::KeyCode::Char('q') => {
+                        self.topbar.select_exit();
+                        self.exit = true
+                    }
+                    event::KeyCode::Char('u') => {
+                        self.topbar.select_undo();
+                        self.canvas.undo()
+                    }
+                    event::KeyCode::Char('r') => {
+                        self.topbar.select_redo();
+                        self.canvas.redo()
+                    }
                     _ => {}
                 },
                 _ => {}
