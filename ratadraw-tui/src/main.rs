@@ -17,6 +17,7 @@ use ratatui::{
 use topbar_widget::TopBarWidget;
 
 mod canvas_widget;
+mod selection_widget;
 mod topbar_widget;
 
 #[derive(Default)]

@@ -1,0 +1,7 @@
+[package]
+name = "cargo-rund"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+cargo-rund-derive = { path = "../cargo-rund-derive" }

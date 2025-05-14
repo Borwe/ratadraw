@@ -1,3 +1,4 @@
+extern crate ratatui;
 use std::default;
 
 use ratatui::{

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = [
+members = [ "cargo-rund", "cargo-rund-derive", "cargo-rund-derive-impl",
     "ratadraw-loader",
     "ratadraw-tui" ,
     "xtask"
