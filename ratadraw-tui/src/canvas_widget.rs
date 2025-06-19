@@ -1,7 +1,15 @@
+cfg_if::cfg_if!{
+    if #[cfg(target_arch = "wasm32")] {
+        use crate::utils::MouseState;
+    } else if #[cfg(not(target_arch = "wasm32"))] {
+        use ratatui::crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
+    }
+}
+
+
 use std::{collections::HashSet, hash::Hash};
 
 use ratatui::{
-    crossterm::event::{MouseButton, MouseEvent, MouseEventKind},
     layout::{Position, Rect},
     symbols,
     widgets::{Block, Widget},
@@ -46,7 +54,41 @@ pub struct DrawingCanvas {
 }
 
 impl DrawingCanvas {
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) fn listen(&mut self, pos: Position, state: MouseState) {
+
+        //match state {
+        //    MouseState::Pressed => {},
+        //    MouseState::Released => {},
+        //    MouseState::None => {},
+        //}
+        //match event.kind {
+        //    MouseEventKind::Down(x) if x == MouseButton::Left => {
+        //        //clear all items in undone queue as we've overwritten them
+        //        self.undone_cells.clear();
+        //        let mut new_group = CellGroup::with_capacity(200);
+        //        new_group.push(MyCell {
+        //            x: event.column,
+        //            y: event.row,
+        //            val: symbols::block::FULL,
+        //        });
+        //        self.cells.push(new_group);
+        //    }
+        //    MouseEventKind::Drag(x) if x == MouseButton::Left => {
+        //        let vec = self.cells.last_mut().unwrap();
+        //        vec.push(MyCell {
+        //            x: event.column,
+        //            y: event.row,
+        //            val: symbols::block::FULL,
+        //        });
+        //    }
+        //    _ => {}
+        //};
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn listen(&mut self, event: MouseEvent) {
+
         match event.kind {
             MouseEventKind::Down(x) if x == MouseButton::Left => {
                 //clear all items in undone queue as we've overwritten them

@@ -1,10 +1,8 @@
-extern crate ratatui;
 use std::default;
 
 use ratatui::{
-    crossterm::style::Color,
     layout::Constraint,
-    style::Stylize,
+    style::{Color, Stylize},
     text::Text,
     widgets::{Cell, Row, StatefulWidget, Table, Widget},
 };

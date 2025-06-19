@@ -1,21 +1,72 @@
-use std::{error::Error, time::Duration};
+cfg_if::cfg_if!{
+    if #[cfg(target_arch = "wasm32")] {
+        use ratzilla::event::{KeyCode, KeyEvent};
+        use ratzilla::WebRenderer;
+        use ratzilla::DomBackend;
+        use crate::utils::MouseState;
+    }else if #[cfg(not(target_arch = "wasm32"))] {
+        use ratatui::{crossterm::event::{self, Event, KeyEventKind, MouseEventKind}};
+    }
+}
+use std::{error::Error, time::Duration, rc::Rc};
 
-use ratatui::{crossterm::event::{self, Event, KeyEventKind, MouseEventKind}, layout::{Position, Rect}, prelude::Backend, widgets::Widget, Terminal};
+use ratatui::{layout::{Position, Rect}, prelude::Backend, widgets::Widget, Terminal};
 
 use crate::{canvas_widget::DrawingCanvas, topbar_widget::TopBarWidget};
 
-
-
 #[derive(Default)]
-pub struct App {
+pub(crate) struct App {
     exit: bool,
-    mouse_position: Option<Position>,
+    mouse_position: Rc<Option<Position>>,
     topbar: TopBarWidget,
     canvas: DrawingCanvas,
 }
 
 impl App {
-    pub fn run<B: Backend>(&mut self, term: &mut Terminal<B>) -> Result<(), Box<dyn Error>> {
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) fn run(&mut self, term: &mut Terminal<DomBackend>) -> Result<(), Box<dyn Error>> {
+        use std::cell::RefCell;
+
+        use ratatui::Frame;
+        use web_sys::wasm_bindgen::prelude::Closure;
+
+
+        let me: &mut App = unsafe{
+            let ptr: *mut App = self;
+            &mut (*ptr)
+        };
+        self.listen(term);
+
+        let term: &mut Terminal<_> = unsafe {
+            let ptr: *mut Terminal<_> = term;
+            &mut (*ptr)
+        };
+
+        let mut render_callback = move |f: &mut Frame| {
+            let topbar: &TopBarWidget = { &(*me).topbar };
+            let canvas: &mut DrawingCanvas = { &mut (*me).canvas};
+            f.render_widget(topbar, f.area());
+            f.render_widget(canvas, f.area());
+            f.render_widget(&me, f.area());
+        };
+
+        let callback = Rc::new(RefCell::new(None));
+        *callback.borrow_mut() = Some(Closure::wrap(Box::new({
+            let cb = callback.clone();
+            move || {
+                term.draw(|frame| {
+                    render_callback(frame);
+                })
+                .unwrap();
+                Terminal::<DomBackend>::request_animation_frame(cb.borrow().as_ref().unwrap());
+            }
+        }) as Box<dyn FnMut()>));
+        Terminal::<DomBackend>::request_animation_frame(callback.borrow().as_ref().unwrap());
+        Ok(())
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn run<B: Backend + Sized + 'static>(&mut self, term: &mut Terminal<B>) -> Result<(), Box<dyn Error>> {
         while !self.exit {
             term.draw(|f| {
                 f.render_widget(&self.topbar, f.area());
@@ -28,6 +79,90 @@ impl App {
         Ok(())
     }
 
+
+    /** For web, sets up listener and handler*/
+    #[cfg(target_arch = "wasm32")]
+    fn listen<B: Backend + Sized + 'static>(&mut self, term: &mut Terminal<B>) {
+        use ratzilla::{utils::{self, is_mobile}, WebRenderer};
+        use web_sys::wasm_bindgen::{prelude::Closure, JsCast};
+
+        let window = web_sys::window().expect("Couldn't get window context");
+        let document = window.document().expect("Coudln't get dcument from window'");
+        let (width, height): (u16, u16)= match is_mobile() {
+            true => {
+                (window.screen().expect("Couldn't get screen")
+                    .width().unwrap().try_into().unwrap(),
+                window.screen().expect("Couldn't get screen")
+                        .height().unwrap().try_into().unwrap())
+            },
+            false => (u16::try_from(window.inner_width()
+                .unwrap().as_f64().unwrap() as usize).unwrap(),
+                u16::try_from(window.inner_height()
+                    .unwrap().as_f64().unwrap() as usize).unwrap())
+        };
+
+        let me: &mut App = unsafe {
+            let ptr: *mut App = self;
+            &mut (*ptr)
+       };
+
+        let closure = Closure::new(move |event: web_sys::MouseEvent|{
+                let target = event.target();
+                let x: u32 = event.x().try_into().expect("Coudln't get x coordinate");
+                let y: u32 = event.y().try_into().expect("Coudln't get x coordinate");
+                let size = match utils::is_mobile(){
+                    true => utils::get_screen_size(),
+                    false => utils::get_window_size(),
+                };
+
+                let gaps_in_x = width/size.width;
+                let gaps_in_y = height/size.height;
+                let x_i: u16 = x as u16 /gaps_in_x;
+                let y_i: u16 = y as u16 /gaps_in_x;
+                let position = Position::new(x_i, y_i);
+                me.handle_hover(position);
+            });
+
+        document.set_onmousemove(Some(closure.as_ref().unchecked_ref()));
+
+        let me: &mut App = unsafe {
+            let ptr: *mut App = self;
+            &mut (*ptr)
+        };
+
+        term.on_key_event(|event|{
+            me.handle_event(event);
+        });
+    }
+
+
+    #[cfg(target_arch = "wasm32")]
+    fn handle_hover(&mut self, pos: Position) {
+        self.canvas.listen(pos, MouseState::None);
+        self.mouse_position = Rc::new(Some(pos));
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn handle_event(&mut self, event: KeyEvent) {
+
+        match event.code {
+            KeyCode::Char('q') => {
+                self.topbar.select_exit();
+                self.exit = true
+            }
+            KeyCode::Char('u') => {
+                self.topbar.select_undo();
+                self.canvas.undo()
+            }
+            KeyCode::Char('r') => {
+                self.topbar.select_redo();
+                self.canvas.redo()
+            }
+            _ => {}
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
     fn listen(&mut self) -> Result<(), Box<dyn Error>> {
         match ratatui::crossterm::event::poll(Duration::from_millis(5))? {
             true => Ok(self.handle_event(event::read()?)),
@@ -35,6 +170,7 @@ impl App {
         }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn handle_event(&mut self, event: Event) {
         match event {
             Event::Key(x) => match x.kind {
@@ -63,12 +199,13 @@ impl App {
         }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn handle_hover(&mut self, x: event::MouseEvent) {
         if x.kind == MouseEventKind::Moved {
-            self.mouse_position = Some(Position {
+            self.mouse_position = Rc::new(Some(Position {
                 x: x.column,
                 y: x.row,
-            });
+            }));
         }
     }
 }
@@ -78,8 +215,8 @@ impl Widget for &&mut App {
     where
         Self: Sized,
     {
-        if let Some(pos) = self.mouse_position.clone() {
-            if let Some(cell) = buf.cell_mut(pos) {
+        if let Some(pos) = self.mouse_position.as_ref() {
+            if let Some(cell) = buf.cell_mut(pos.clone().to_owned()) {
                 cell.set_bg(ratatui::style::Color::LightGreen);
             }
         }
