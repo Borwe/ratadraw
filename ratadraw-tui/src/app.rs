@@ -8,7 +8,7 @@ cfg_if::cfg_if!{
         use ratatui::{crossterm::event::{self, Event, KeyEventKind, MouseEventKind}};
     }
 }
-use std::{error::Error, time::Duration, rc::Rc};
+use std::{error::Error, time::Duration, rc::Rc, cell::RefCell};
 
 use ratatui::{layout::{Position, Rect}, prelude::Backend, widgets::Widget, Terminal};
 
@@ -24,51 +24,33 @@ pub(crate) struct App {
 
 impl App {
     #[cfg(target_arch = "wasm32")]
-    pub(crate) fn run(&mut self, term: &mut Terminal<DomBackend>) -> Result<(), Box<dyn Error>> {
-        use std::cell::RefCell;
+    pub(crate) fn run(me: Rc<RefCell<Self>>, term: Rc<RefCell<Terminal<DomBackend>>>) -> Result<(), Box<dyn Error>> {
+        use std::ops::DerefMut;
 
         use ratatui::Frame;
-        use web_sys::wasm_bindgen::prelude::Closure;
+
+        App::listen(me.clone(), term.clone());
 
 
-        let me: &mut App = unsafe{
-            let ptr: *mut App = self;
-            &mut (*ptr)
+        let me_clone = me.clone();
+        let term: Box<Terminal<DomBackend>> = unsafe {
+            Box::from_raw(term.as_ptr())
         };
-        self.listen(term);
+        term.draw_web(Box::new(move |f: &mut Frame| {
+            f.render_widget(&me_clone.borrow().topbar, f.area());
+            f.render_widget(&mut me_clone.borrow_mut().canvas, f.area());
+            f.render_widget(&me_clone.borrow_mut().deref_mut(), f.area());
+        }));
 
-        let term: &mut Terminal<_> = unsafe {
-            let ptr: *mut Terminal<_> = term;
-            &mut (*ptr)
-        };
-
-        let mut render_callback = move |f: &mut Frame| {
-            let topbar: &TopBarWidget = { &(*me).topbar };
-            let canvas: &mut DrawingCanvas = { &mut (*me).canvas};
-            f.render_widget(topbar, f.area());
-            f.render_widget(canvas, f.area());
-            f.render_widget(&me, f.area());
-        };
-
-        let callback = Rc::new(RefCell::new(None));
-        *callback.borrow_mut() = Some(Closure::wrap(Box::new({
-            let cb = callback.clone();
-            move || {
-                term.draw(|frame| {
-                    render_callback(frame);
-                })
-                .unwrap();
-                Terminal::<DomBackend>::request_animation_frame(cb.borrow().as_ref().unwrap());
-            }
-        }) as Box<dyn FnMut()>));
-        Terminal::<DomBackend>::request_animation_frame(callback.borrow().as_ref().unwrap());
         Ok(())
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    pub(crate) fn run<B: Backend + Sized + 'static>(&mut self, term: &mut Terminal<B>) -> Result<(), Box<dyn Error>> {
+    pub(crate) fn run<B: Backend + Sized + 'static>(&mut self,
+        term: Rc<RefCell<Terminal<B>>>) -> Result<(), Box<dyn Error>> {
+
         while !self.exit {
-            term.draw(|f| {
+            term.borrow_mut().draw(|f| {
                 f.render_widget(&self.topbar, f.area());
                 f.render_widget(&mut self.canvas, f.area());
                 f.render_widget(&self, f.area());
@@ -82,12 +64,17 @@ impl App {
 
     /** For web, sets up listener and handler*/
     #[cfg(target_arch = "wasm32")]
-    fn listen<B: Backend + Sized + 'static>(&mut self, term: &mut Terminal<B>) {
+    fn listen(me: Rc<RefCell<App>>, term: Rc<RefCell<Terminal<DomBackend>>>) {
         use ratzilla::{utils::{self, is_mobile}, WebRenderer};
-        use web_sys::wasm_bindgen::{prelude::Closure, JsCast};
+        use web_sys::{wasm_bindgen::{prelude::Closure, JsCast}, HtmlElement};
 
         let window = web_sys::window().expect("Couldn't get window context");
         let document = window.document().expect("Coudln't get dcument from window'");
+        //disable highlighting by mouse
+        document.body().and_then(|body|{
+            body.style().set_property("user-select", "none").unwrap();
+            Some(())
+        });
         let (width, height): (u16, u16)= match is_mobile() {
             true => {
                 (window.screen().expect("Couldn't get screen")
@@ -101,13 +88,9 @@ impl App {
                     .unwrap().as_f64().unwrap() as usize).unwrap())
         };
 
-        let me: &mut App = unsafe {
-            let ptr: *mut App = self;
-            &mut (*ptr)
-       };
+        let me_c1 = me.clone();
 
-        let closure = Closure::new(move |event: web_sys::MouseEvent|{
-                let target = event.target();
+        let closure = Closure::wrap(Box::new(move |event: web_sys::MouseEvent|{
                 let x: u32 = event.x().try_into().expect("Coudln't get x coordinate");
                 let y: u32 = event.y().try_into().expect("Coudln't get x coordinate");
                 let size = match utils::is_mobile(){
@@ -118,23 +101,19 @@ impl App {
                 let gaps_in_x = width/size.width;
                 let gaps_in_y = height/size.height;
                 let x_i: u16 = x as u16 /gaps_in_x;
-                let y_i: u16 = y as u16 /gaps_in_x;
+                let y_i: u16 = y as u16 /gaps_in_y;
                 let position = Position::new(x_i, y_i);
-                me.handle_hover(position);
-            });
+                me_c1.borrow_mut().handle_hover(position);
+            }) as Box<dyn FnMut(_)>);
 
         document.set_onmousemove(Some(closure.as_ref().unchecked_ref()));
 
-        let me: &mut App = unsafe {
-            let ptr: *mut App = self;
-            &mut (*ptr)
-        };
+        std::mem::forget(closure);
 
-        term.on_key_event(|event|{
-            me.handle_event(event);
+        term.borrow().on_key_event(move |event|{
+            me.borrow_mut().handle_event(event);
         });
     }
-
 
     #[cfg(target_arch = "wasm32")]
     fn handle_hover(&mut self, pos: Position) {

@@ -8,7 +8,7 @@ cfg_if::cfg_if!{
     }
 }
 
-use std::error::Error;
+use std::{cell::RefCell, error::Error, rc::Rc};
 
 use app::App;
 use ratatui::{prelude::Backend, Terminal};
@@ -33,20 +33,20 @@ fn get_terminal()-> std::io::Result<Terminal<DomBackend>>{
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let mut term = get_terminal()?;
-    let mut app = App::default();
-
-    #[cfg(not(target_arch = "wasm32"))]
-    stdout().execute(EnableMouseCapture)?;
-
-    app.run(&mut term)?;
+    let term = Rc::from(RefCell::new(get_terminal()?));
+    let app = Rc::from(RefCell::new(App::default()));
 
     #[cfg(not(target_arch = "wasm32"))] 
     {
+        stdout().execute(EnableMouseCapture)?;
+        app.borrow_mut().run(term)?;
         stdout().execute(DisableMouseCapture)?;
         Ok(ratatui::try_restore()?)
     }
 
     #[cfg(target_arch = "wasm32")] 
-    Ok(())
+    {
+        App::run(app.clone(), term.clone());
+        Ok(())
+    }
 }
